@@ -24,7 +24,6 @@ import (
 	"runtime"
 	"sync"
 	"time"
-
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/golang/glog"
 )
@@ -163,6 +162,7 @@ func (e *etcdLock) Stop() {
 	e.watchStopCh <- true
 	// Wait for acquire to finish.
 	<-e.stoppedCh
+    close(e.eventsCh)
 }
 
 // Method to get the event channel used by the etcd lock.

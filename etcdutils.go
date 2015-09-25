@@ -17,7 +17,6 @@ limitations under the License.
 package etcdlock
 
 import (
-	"flag"
 	"github.com/coreos/go-etcd/etcd"
 )
 
@@ -98,9 +97,6 @@ type Registry interface {
 		receiver chan *etcd.Response, stop chan bool) (*etcd.Response, error)
 }
 
-var etcdServer = flag.String("etcd-server", "http://127.0.0.1:4001",
-	"Etcd service location")
-
-func NewEtcdRegistry() Registry {
-	return etcd.NewClient([]string{*etcdServer})
+func NewEtcdRegistry(serverlist []string) Registry {
+	return etcd.NewClient(serverlist)
 }
