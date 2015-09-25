@@ -41,14 +41,13 @@ limitations under the License.
 //    with lock-ttl.
 // 5) The queue entry is deleted in the unlock function or on ttl expiry.
 
-package utils
+package etcdlock
 
 import (
 	"encoding/json"
 	"errors"
 	"flag"
 	"path"
-
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/golang/glog"
 	"github.com/satori/go.uuid"

@@ -16,7 +16,7 @@ limitations under the License.
 
 // Utility to perform master election/failover using etcd.
 
-package utils
+package etcdlock
 
 import (
 	"errors"
@@ -99,20 +99,46 @@ func NewMaster(client Registry, name string, id string,
 		modifiedIndex: 0}, nil
 }
 
+func (e *etcdLock) isEnable() bool {
+    e.Lock()
+    defer e.Unlock()
+    return e.enabled
+}
+
+func (e *etcdLock) setEnable() bool {
+   e.Lock()
+   defer e.Unlock()
+   if e.enabled {
+       return false
+   }
+   e.enabled = true
+   return true
+}
+
+func (e *etcdLock) setDisable() bool {
+   e.Lock()
+   defer e.Unlock()
+   if !e.enabled {
+       return false
+   }
+   e.enabled = false
+   return true
+}
+
+func (e *etcdLock) setMaster(master string) {
+    e.Lock()
+    defer e.Unlock()
+    e.master = master
+}
+
 // Method to start the attempt to acquire the lock.
 func (e *etcdLock) Start() {
 	glog.Infof("Starting attempt to acquire lock %s", e.name)
-
-	e.Lock()
-	if e.enabled {
-		e.Unlock()
+	if !e.setEnable() {
 		// Already running
 		glog.Warningf("Duplicate Start for lock %s", e.name)
 		return
 	}
-
-	e.enabled = true
-	e.Unlock()
 
 	// Acquire in the background.
 	go func() {
@@ -129,21 +155,12 @@ func (e *etcdLock) Start() {
 // Method to stop the acquisition of lock and release it if holding the lock.
 func (e *etcdLock) Stop() {
 	glog.Infof("Stopping attempt to acquire lock %s", e.name)
-
-	e.Lock()
-	if !e.enabled {
-		e.Unlock()
+	if !e.setDisable() {
 		// Not running
 		glog.Warningf("Duplicate Stop for lock %s", e.name)
 		return
 	}
-
-	// Disable the lock and stop the watch.
-	e.enabled = false
-	e.Unlock()
-
 	e.watchStopCh <- true
-
 	// Wait for acquire to finish.
 	<-e.stoppedCh
 }
@@ -201,10 +218,7 @@ func (e *etcdLock) acquire() (ret error) {
 				e.refreshStopCh <- true
 			}
 			// Wont be able to track the master.
-			e.Lock()
-			e.master = ""
-			e.Unlock()
-
+			e.setMaster("")
 			e.stoppedCh <- true
 			break
 		}
@@ -262,9 +276,7 @@ func (e *etcdLock) acquire() (ret error) {
 		}
 
 		// Record the new master and modified index.
-		e.Lock()
-		e.master = resp.Node.Value
-		e.Unlock()
+		e.setMaster(resp.Node.Value)
 		e.modifiedIndex = resp.Node.ModifiedIndex
 
 		var prevIndex uint64
